@@ -78,8 +78,8 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
           >
             <defs>
               <linearGradient id="colorNewUsers" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3182CE" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#3182CE" stopOpacity={0} />
+                <stop offset="5%" stopColor="#F97316" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorActiveUsers" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#38B2AC" stopOpacity={0.8} />
@@ -120,7 +120,7 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
                 type="monotone"
                 dataKey="newUsers"
                 name="New Users"
-                stroke="#3182CE"
+                stroke="#F97316"
                 fillOpacity={1}
                 fill="url(#colorNewUsers)"
                 strokeWidth={2}

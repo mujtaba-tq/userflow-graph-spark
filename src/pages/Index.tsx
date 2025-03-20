@@ -35,7 +35,7 @@ const Index = () => {
           className="mb-8"
         >
           <h1 className="text-3xl md:text-4xl font-light tracking-tight text-foreground">
-            <span className="text-primary font-normal">User</span> Analytics
+            <span className="text-primary font-normal">EatsBoost</span> User Analytics
           </h1>
           <p className="text-muted-foreground mt-2">
             Monitor your user growth and activity over time
