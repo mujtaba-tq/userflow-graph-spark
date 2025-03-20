@@ -18,7 +18,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 
-type UserMetric = "totalUsers" | "activeUsers" | "avgDailyUsers";
+type UserMetric = "totalUsers" | "activeUsers";
 
 interface UserChartProps {
   data: UserData[];
@@ -26,7 +26,7 @@ interface UserChartProps {
 }
 
 const UserChart = ({ data, isLoading }: UserChartProps) => {
-  const [activeMetrics, setActiveMetrics] = useState<UserMetric[]>(["totalUsers", "activeUsers", "avgDailyUsers"]);
+  const [activeMetrics, setActiveMetrics] = useState<UserMetric[]>(["totalUsers", "activeUsers"]);
   const [filteredData, setFilteredData] = useState<UserData[]>(data);
   
   // Set initial date range (past 30 days by default)
@@ -42,29 +42,14 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
     to: today,
   });
 
-  // Process data to add average daily users and apply date filtering
+  // Process data and apply date filtering
   useEffect(() => {
     if (!data.length) return;
 
     let filtered = filterDataByDateRange(data, dateRange.from, dateRange.to);
     filtered = formatDateForAxis(filtered, dateRange.from, dateRange.to);
     
-    // Add 7-day rolling average for daily users
-    const processedData = filtered.map((item, index, array) => {
-      // Calculate average active users for a 7-day rolling window
-      const startIdx = Math.max(0, index - 6);
-      const window = array.slice(startIdx, index + 1);
-      const avgDailyUsers = Math.round(
-        window.reduce((sum, item) => sum + item.activeUsers, 0) / window.length
-      );
-      
-      return {
-        ...item,
-        avgDailyUsers
-      };
-    });
-    
-    setFilteredData(processedData);
+    setFilteredData(filtered);
   }, [data, dateRange]);
 
   const toggleMetric = (metric: UserMetric) => {
@@ -158,15 +143,6 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
             >
               Active Users
             </button>
-            <button
-              onClick={() => toggleMetric("avgDailyUsers")}
-              className={cn(
-                "filter-button px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
-                activeMetrics.includes("avgDailyUsers") ? "active" : "bg-white border"
-              )}
-            >
-              Avg Daily
-            </button>
           </div>
         </div>
       </div>
@@ -185,10 +161,6 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
               <linearGradient id="colorActiveUsers" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#38B2AC" stopOpacity={0.8} />
                 <stop offset="95%" stopColor="#38B2AC" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorAvgDailyUsers" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} vertical={false} />
@@ -242,20 +214,6 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
                 stroke="#38B2AC"
                 fillOpacity={1}
                 fill="url(#colorActiveUsers)"
-                strokeWidth={2}
-                activeDot={{ r: 6, strokeWidth: 0 }}
-                animationDuration={1000}
-                isAnimationActive={true}
-              />
-            )}
-            {activeMetrics.includes("avgDailyUsers") && (
-              <Area
-                type="monotone"
-                dataKey="avgDailyUsers"
-                name="Avg Daily Users"
-                stroke="#8B5CF6"
-                fillOpacity={1}
-                fill="url(#colorAvgDailyUsers)"
                 strokeWidth={2}
                 activeDot={{ r: 6, strokeWidth: 0 }}
                 animationDuration={1000}
