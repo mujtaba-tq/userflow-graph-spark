@@ -1,4 +1,6 @@
 
+import React from "react";
+
 // Simple motion animation helpers
 
 type MotionProps = {
