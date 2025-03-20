@@ -10,18 +10,15 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { UserData } from "@/services/userData";
+import { UserData, filterDataByDateRange, formatDateForAxis } from "@/services/userData";
 import { cn } from "@/lib/utils";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue 
-} from "@/components/ui/select";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
-type UserMetric = "newUsers" | "activeUsers" | "avgDailyUsers";
-type TimeFilter = "all" | "year" | "month";
+type UserMetric = "totalUsers" | "activeUsers" | "avgDailyUsers";
 
 interface UserChartProps {
   data: UserData[];
@@ -29,13 +26,31 @@ interface UserChartProps {
 }
 
 const UserChart = ({ data, isLoading }: UserChartProps) => {
-  const [activeMetrics, setActiveMetrics] = useState<UserMetric[]>(["newUsers", "activeUsers", "avgDailyUsers"]);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [activeMetrics, setActiveMetrics] = useState<UserMetric[]>(["totalUsers", "activeUsers", "avgDailyUsers"]);
   const [filteredData, setFilteredData] = useState<UserData[]>(data);
+  
+  // Set initial date range (past 30 days by default)
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today);
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  
+  const [dateRange, setDateRange] = useState<{
+    from: Date;
+    to: Date;
+  }>({
+    from: thirtyDaysAgo,
+    to: today,
+  });
 
-  // Process data to add average daily users
-  const processData = (data: UserData[]) => {
-    return data.map((item, index, array) => {
+  // Process data to add average daily users and apply date filtering
+  useEffect(() => {
+    if (!data.length) return;
+
+    let filtered = filterDataByDateRange(data, dateRange.from, dateRange.to);
+    filtered = formatDateForAxis(filtered, dateRange.from, dateRange.to);
+    
+    // Add 7-day rolling average for daily users
+    const processedData = filtered.map((item, index, array) => {
       // Calculate average active users for a 7-day rolling window
       const startIdx = Math.max(0, index - 6);
       const window = array.slice(startIdx, index + 1);
@@ -48,38 +63,9 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
         avgDailyUsers
       };
     });
-  };
-
-  // Apply time filters
-  useEffect(() => {
-    if (!data.length) return;
-
-    const now = new Date();
-    let filtered;
-
-    switch (timeFilter) {
-      case "month":
-        const oneMonthAgo = new Date();
-        oneMonthAgo.setMonth(now.getMonth() - 1);
-        filtered = data.filter(item => {
-          const date = new Date(item.date);
-          return date >= oneMonthAgo;
-        });
-        break;
-      case "year":
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(now.getFullYear() - 1);
-        filtered = data.filter(item => {
-          const date = new Date(item.date);
-          return date >= oneYearAgo;
-        });
-        break;
-      default:
-        filtered = [...data];
-    }
-
-    setFilteredData(processData(filtered));
-  }, [data, timeFilter]);
+    
+    setFilteredData(processedData);
+  }, [data, dateRange]);
 
   const toggleMetric = (metric: UserMetric) => {
     setActiveMetrics((prev) => {
@@ -108,29 +94,60 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
         <h2 className="text-2xl font-medium text-foreground">User Analytics</h2>
         
         <div className="flex flex-wrap gap-3 items-center">
-          <Select
-            value={timeFilter}
-            onValueChange={(value) => setTimeFilter(value as TimeFilter)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Time Period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="year">Last Year</SelectItem>
-              <SelectItem value="month">Last Month</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center space-x-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "MMM dd, yyyy")} -{" "}
+                        {format(dateRange.to, "MMM dd, yyyy")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "PPP")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={{
+                    from: dateRange.from,
+                    to: dateRange.to,
+                  }}
+                  onSelect={(range) => {
+                    if (range?.from && range?.to) {
+                      setDateRange({
+                        from: range.from,
+                        to: range.to,
+                      });
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           
           <div className="flex space-x-3">
             <button
-              onClick={() => toggleMetric("newUsers")}
+              onClick={() => toggleMetric("totalUsers")}
               className={cn(
                 "filter-button px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
-                activeMetrics.includes("newUsers") ? "active" : "bg-white border"
+                activeMetrics.includes("totalUsers") ? "active" : "bg-white border"
               )}
             >
-              New Users
+              Total Users
             </button>
             <button
               onClick={() => toggleMetric("activeUsers")}
@@ -161,7 +178,7 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
             margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
           >
             <defs>
-              <linearGradient id="colorNewUsers" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="colorTotalUsers" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#F97316" stopOpacity={0.8} />
                 <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
               </linearGradient>
@@ -203,14 +220,14 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
               iconSize={8}
               wrapperStyle={{ paddingTop: '8px' }}
             />
-            {activeMetrics.includes("newUsers") && (
+            {activeMetrics.includes("totalUsers") && (
               <Area
                 type="monotone"
-                dataKey="newUsers"
-                name="New Users"
+                dataKey="totalUsers"
+                name="Total Users"
                 stroke="#F97316"
                 fillOpacity={1}
-                fill="url(#colorNewUsers)"
+                fill="url(#colorTotalUsers)"
                 strokeWidth={2}
                 activeDot={{ r: 6, strokeWidth: 0 }}
                 animationDuration={1000}
