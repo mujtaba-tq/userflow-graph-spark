@@ -12,8 +12,16 @@ import {
 } from "recharts";
 import { UserData } from "@/services/userData";
 import { cn } from "@/lib/utils";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue 
+} from "@/components/ui/select";
 
-type UserMetric = "newUsers" | "activeUsers";
+type UserMetric = "newUsers" | "activeUsers" | "avgDailyUsers";
+type TimeFilter = "all" | "year" | "month";
 
 interface UserChartProps {
   data: UserData[];
@@ -21,7 +29,57 @@ interface UserChartProps {
 }
 
 const UserChart = ({ data, isLoading }: UserChartProps) => {
-  const [activeMetrics, setActiveMetrics] = useState<UserMetric[]>(["newUsers", "activeUsers"]);
+  const [activeMetrics, setActiveMetrics] = useState<UserMetric[]>(["newUsers", "activeUsers", "avgDailyUsers"]);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [filteredData, setFilteredData] = useState<UserData[]>(data);
+
+  // Process data to add average daily users
+  const processData = (data: UserData[]) => {
+    return data.map((item, index, array) => {
+      // Calculate average active users for a 7-day rolling window
+      const startIdx = Math.max(0, index - 6);
+      const window = array.slice(startIdx, index + 1);
+      const avgDailyUsers = Math.round(
+        window.reduce((sum, item) => sum + item.activeUsers, 0) / window.length
+      );
+      
+      return {
+        ...item,
+        avgDailyUsers
+      };
+    });
+  };
+
+  // Apply time filters
+  useEffect(() => {
+    if (!data.length) return;
+
+    const now = new Date();
+    let filtered;
+
+    switch (timeFilter) {
+      case "month":
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(now.getMonth() - 1);
+        filtered = data.filter(item => {
+          const date = new Date(item.date);
+          return date >= oneMonthAgo;
+        });
+        break;
+      case "year":
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(now.getFullYear() - 1);
+        filtered = data.filter(item => {
+          const date = new Date(item.date);
+          return date >= oneYearAgo;
+        });
+        break;
+      default:
+        filtered = [...data];
+    }
+
+    setFilteredData(processData(filtered));
+  }, [data, timeFilter]);
 
   const toggleMetric = (metric: UserMetric) => {
     setActiveMetrics((prev) => {
@@ -48,32 +106,58 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
     <div className="w-full animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <h2 className="text-2xl font-medium text-foreground">User Analytics</h2>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => toggleMetric("newUsers")}
-            className={cn(
-              "filter-button px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
-              activeMetrics.includes("newUsers") ? "active" : "bg-white border"
-            )}
+        
+        <div className="flex flex-wrap gap-3 items-center">
+          <Select
+            value={timeFilter}
+            onValueChange={(value) => setTimeFilter(value as TimeFilter)}
           >
-            New Users
-          </button>
-          <button
-            onClick={() => toggleMetric("activeUsers")}
-            className={cn(
-              "filter-button px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
-              activeMetrics.includes("activeUsers") ? "active" : "bg-white border"
-            )}
-          >
-            Active Users
-          </button>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Time Period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="year">Last Year</SelectItem>
+              <SelectItem value="month">Last Month</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <div className="flex space-x-3">
+            <button
+              onClick={() => toggleMetric("newUsers")}
+              className={cn(
+                "filter-button px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
+                activeMetrics.includes("newUsers") ? "active" : "bg-white border"
+              )}
+            >
+              New Users
+            </button>
+            <button
+              onClick={() => toggleMetric("activeUsers")}
+              className={cn(
+                "filter-button px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
+                activeMetrics.includes("activeUsers") ? "active" : "bg-white border"
+              )}
+            >
+              Active Users
+            </button>
+            <button
+              onClick={() => toggleMetric("avgDailyUsers")}
+              className={cn(
+                "filter-button px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
+                activeMetrics.includes("avgDailyUsers") ? "active" : "bg-white border"
+              )}
+            >
+              Avg Daily
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="chart-container h-[300px] w-full bg-white rounded-xl p-4 border shadow-sm animate-scale-in">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={data}
+            data={filteredData}
             margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
           >
             <defs>
@@ -84,6 +168,10 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
               <linearGradient id="colorActiveUsers" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#38B2AC" stopOpacity={0.8} />
                 <stop offset="95%" stopColor="#38B2AC" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="colorAvgDailyUsers" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} vertical={false} />
@@ -137,6 +225,20 @@ const UserChart = ({ data, isLoading }: UserChartProps) => {
                 stroke="#38B2AC"
                 fillOpacity={1}
                 fill="url(#colorActiveUsers)"
+                strokeWidth={2}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+                animationDuration={1000}
+                isAnimationActive={true}
+              />
+            )}
+            {activeMetrics.includes("avgDailyUsers") && (
+              <Area
+                type="monotone"
+                dataKey="avgDailyUsers"
+                name="Avg Daily Users"
+                stroke="#8B5CF6"
+                fillOpacity={1}
+                fill="url(#colorAvgDailyUsers)"
                 strokeWidth={2}
                 activeDot={{ r: 6, strokeWidth: 0 }}
                 animationDuration={1000}

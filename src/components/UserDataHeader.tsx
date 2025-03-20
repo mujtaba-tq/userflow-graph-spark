@@ -12,12 +12,20 @@ interface UserDataHeaderProps {
 const UserDataHeader: React.FC<UserDataHeaderProps> = ({ data, isLoading }) => {
   // Calculate summary data
   const calculateStats = () => {
-    if (!data.length) return { totalNewUsers: 0, totalActiveUsers: 0, growth: "0%" };
+    if (!data.length) return { totalNewUsers: 0, totalActiveUsers: 0, avgDailyUsers: 0, dailyChange: "0%" };
     
     const totalNewUsers = data.reduce((acc, day) => acc + day.newUsers, 0);
     const totalActiveUsers = data.reduce((acc, day) => acc + day.activeUsers, 0);
+    const avgDailyUsers = Math.round(totalActiveUsers / data.length);
     
-    // Calculate growth compared to previous period
+    // Calculate day-over-day change for total new users (last day vs previous day)
+    const lastDay = data[data.length - 1];
+    const previousDay = data.length > 1 ? data[data.length - 2] : { newUsers: lastDay.newUsers };
+    
+    const dailyChangeRate = ((lastDay.newUsers - previousDay.newUsers) / previousDay.newUsers) * 100;
+    const dailyChange = `${dailyChangeRate.toFixed(1)}%`;
+    
+    // Calculate growth compared to previous period (for backward compatibility)
     const halfwayIndex = Math.floor(data.length / 2);
     const recentData = data.slice(halfwayIndex);
     const previousData = data.slice(0, halfwayIndex);
@@ -28,7 +36,15 @@ const UserDataHeader: React.FC<UserDataHeaderProps> = ({ data, isLoading }) => {
     const growthRate = ((recentNewUsers - previousNewUsers) / previousNewUsers) * 100;
     const growth = `${growthRate.toFixed(1)}%`;
     
-    return { totalNewUsers, totalActiveUsers, growth, isPositive: growthRate > 0 };
+    return { 
+      totalNewUsers, 
+      totalActiveUsers, 
+      avgDailyUsers, 
+      dailyChange, 
+      isDailyPositive: dailyChangeRate > 0,
+      growth, 
+      isPositive: growthRate > 0 
+    };
   };
   
   const stats = calculateStats();
@@ -38,8 +54,8 @@ const UserDataHeader: React.FC<UserDataHeaderProps> = ({ data, isLoading }) => {
       <StatCard
         title="Total New Users"
         value={isLoading ? "-" : stats.totalNewUsers.toLocaleString()}
-        change={stats.growth}
-        isPositive={stats.isPositive}
+        change={stats.dailyChange}
+        isPositive={stats.isDailyPositive}
         isLoading={isLoading}
         icon={<UserPlus size={18} />}
       />
@@ -51,7 +67,7 @@ const UserDataHeader: React.FC<UserDataHeaderProps> = ({ data, isLoading }) => {
       />
       <StatCard
         title="Average Daily Users"
-        value={isLoading ? "-" : Math.round(stats.totalActiveUsers / data.length).toLocaleString()}
+        value={isLoading ? "-" : stats.avgDailyUsers.toLocaleString()}
         isLoading={isLoading}
         icon={<Users size={18} />}
       />

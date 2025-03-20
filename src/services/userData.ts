@@ -6,6 +6,7 @@ export type UserData = {
   date: string;
   newUsers: number;
   activeUsers: number;
+  rawDate?: Date; // For filtering purposes
 };
 
 // Generate 30 days of simulated data
@@ -29,6 +30,7 @@ export const generateUserData = (days: number = 30): UserData[] => {
       date: formattedDate,
       newUsers,
       activeUsers,
+      rawDate: new Date(date) // Store the actual date for filtering
     });
   }
   
